@@ -1,14 +1,97 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="Keuangan Real-Time", layout="wide")
+st.set_page_config(page_title="APPV3 Keuangan", layout="wide")
 
-# --- JUDUL APLIKASI ---
-st.title("💰 Aplikasi Keuangan & Investasi (Google Sheets)")
+# --- CSS KUSTOM UNTUK MENIRU TAMPILAN REFERENSI ---
+st.markdown("""
+<style>
+    /* Mengatur font dan background dasar agar lebih bersih */
+    .stApp {
+        background-color: #f8f9fa;
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    
+    /* Styling untuk Judul Utama */
+    .main-title {
+        text-align: center;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0px;
+    }
+    .sub-title {
+        text-align: center;
+        color: #666;
+        font-size: 16px;
+        margin-bottom: 30px;
+    }
+
+    /* Styling Custom Metric Box */
+    .metric-container {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+    .metric-box {
+        flex: 1;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        overflow: hidden;
+        text-align: center;
+        border: 1px solid #e0e0e0;
+    }
+    .metric-header {
+        padding: 10px;
+        font-weight: 600;
+        color: white;
+    }
+    .metric-value {
+        padding: 20px;
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+    }
+    /* Warna Header Metric */
+    .bg-success { background-color: #28a745; } /* Hijau Pemasukan */
+    .bg-danger { background-color: #dc3545; }  /* Merah Pengeluaran */
+    .bg-primary { background-color: #0d6efd; } /* Biru Saldo */
+
+    /* Styling Header Form Biru */
+    .form-header {
+        background-color: #0d6efd;
+        color: white;
+        padding: 15px;
+        border-radius: 8px 8px 0 0;
+        font-weight: 600;
+    }
+    /* Styling Container Form agar menyatu dengan header */
+    [data-testid="stForm"] {
+        border-radius: 0 0 8px 8px;
+        border: 1px solid #e0e0e0;
+        border-top: none;
+        padding: 20px;
+        background-color: white;
+    }
+    
+    /* Styling Header Tabel Riwayat */
+    .table-header {
+        margin-top: 30px;
+        margin-bottom: 15px;
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- JUDUL APLIKASI (DI TENGAN) ---
+st.markdown("<h1 class='main-title'>APPV3</h1>", unsafe_allow_html=True)
+st.markdown("<p class='sub-title'>Mengelola keuangan Anda lebih baik.</p>", unsafe_allow_html=True)
+
 
 # --- KONEKSI KE GOOGLE SHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -16,25 +99,15 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # --- FUNGSI LOAD & SAVE DATA ---
 def load_data():
     try:
-        # Membaca data dari Google Sheets (Sheet1)
-        # ttl=0 agar data tidak di-cache (selalu fresh saat di-reload)
         df = conn.read(worksheet="Sheet1", ttl=0)
-        
-        # Jika sheet masih kosong, kembalikan dataframe dengan struktur kolom
         if df.empty:
              return pd.DataFrame(columns=["Tanggal", "Kategori", "Jenis", "Jumlah", "Keterangan", "Bulan", "Tahun"])
-        
-        # Pastikan kolom Tanggal dibaca sebagai datetime
         df['Tanggal'] = pd.to_datetime(df['Tanggal'])
         return df
-        
     except Exception as e:
-        # Jika terjadi error (misal sheet baru dibuat), buat struktur awal
         return pd.DataFrame(columns=["Tanggal", "Kategori", "Jenis", "Jumlah", "Keterangan", "Bulan", "Tahun"])
 
 def save_data(df):
-    # Mengupdate data ke Google Sheets
-    # Pastikan format tanggal diubah menjadi string agar kompatibel dengan JSON/Sheets
     df_save = df.copy()
     df_save['Tanggal'] = df_save['Tanggal'].astype(str) 
     conn.update(worksheet="Sheet1", data=df_save)
@@ -42,126 +115,132 @@ def save_data(df):
 # Load data saat aplikasi dibuka
 df = load_data()
 
-# --- SIDEBAR: INPUT DATA ---
-st.sidebar.header("📝 Input Transaksi Baru")
-
-with st.sidebar.form("form_transaksi", clear_on_submit=True):
-    tgl = st.date_input("Tanggal", datetime.now())
-    
-    # Kategori sesuai permintaan
-    jenis = st.selectbox("Jenis Transaksi", ["Pemasukan", "Pengeluaran"])
-    
-    kategori_opsi = []
-    if jenis == "Pemasukan":
-        kategori_opsi = ["Gaji", "Dividen", "Bonus", "Lainnya"]
-    else:
-        kategori_opsi = ["Operasional Bulanan", "Investasi", "Kebutuhan Pokok", "Hiburan", "Lainnya"]
-        
-    kategori = st.selectbox("Kategori Detail", kategori_opsi)
-    jumlah = st.number_input("Jumlah (Rp)", min_value=0, step=1000)
-    ket = st.text_input("Keterangan Tambahan")
-    
-    submit = st.form_submit_button("Simpan Data")
-
-    if submit:
-        # Membuat data baru
-        new_data = pd.DataFrame([{
-            "Tanggal": pd.to_datetime(tgl),
-            "Kategori": kategori,
-            "Jenis": jenis,
-            "Jumlah": jumlah,
-            "Keterangan": ket,
-            "Bulan": tgl.strftime("%B"),
-            "Tahun": tgl.year
-        }])
-        
-        # Menggabungkan data lama dengan data baru
-        updated_df = pd.concat([df, new_data], ignore_index=True)
-        
-        # Simpan ke Google Sheets
-        with st.spinner('Menyimpan ke Google Sheets...'):
-            save_data(updated_df)
-            
-        st.success("Data berhasil disimpan ke Cloud!")
-        st.rerun() # Refresh halaman untuk menarik data terbaru
-
-# --- DASHBOARD UTAMA ---
-
-# Jika data kosong, stop eksekusi di sini
-if df.empty:
-    st.info("Belum ada data di Google Sheets. Silakan input data di sidebar.")
-    st.stop()
-
-# 1. Filter Data (Tahun)
-tahun_list = df['Tahun'].unique().tolist()
-if tahun_list:
-    pilih_tahun = st.selectbox("Pilih Tahun Laporan", sorted(tahun_list, reverse=True))
-    df_filtered = df[df['Tahun'] == pilih_tahun]
-else:
-    df_filtered = df # Fallback jika tahun belum terdeteksi
-
-st.markdown("---")
-
-# --- REKAP & METRIK (DENGAN SALDO AWAL) ---
-# Menggunakan 5 Kolom agar Saldo Awal muat
-col1, col2, col3, col4, col5 = st.columns(5)
-
-# SETTING SALDO AWAL
+# --- PERHITUNGAN METRIK ---
 saldo_awal = 4341114 
+if not df.empty:
+    total_masuk = df[df['Jenis'] == 'Pemasukan']['Jumlah'].sum()
+    total_keluar = df[df['Jenis'] == 'Pengeluaran']['Jumlah'].sum()
+else:
+    total_masuk = 0
+    total_keluar = 0
 
-# Hitung Total Masuk & Keluar dari Data yang difilter
-total_masuk = df_filtered[df_filtered['Jenis'] == 'Pemasukan']['Jumlah'].sum()
-total_keluar = df_filtered[df_filtered['Jenis'] == 'Pengeluaran']['Jumlah'].sum()
-total_invest = df_filtered[df_filtered['Kategori'] == 'Investasi']['Jumlah'].sum()
-
-# RUMUS SALDO AKHIR: Saldo Awal + (Masuk - Keluar)
 saldo_akhir = saldo_awal + total_masuk - total_keluar
 
-# Tampilkan Metrik
-col1.metric("Saldo Awal", f"Rp {saldo_awal:,.0f}")
-col2.metric("Total Pemasukan", f"Rp {total_masuk:,.0f}")
-col3.metric("Total Pengeluaran", f"Rp {total_keluar:,.0f}")
-col4.metric("Total Investasi", f"Rp {total_invest:,.0f}")
-col5.metric("Sisa Saldo Akhir", f"Rp {saldo_akhir:,.0f}")
+# --- TAMPILAN METRIK (CUSTOM HTML) ---
+# Menggunakan HTML langsung agar mirip dengan kotak berwarna di referensi
+st.markdown(f"""
+<div class="metric-container">
+    <div class="metric-box">
+        <div class="metric-header bg-success">Total Pemasukan</div>
+        <div class="metric-value" style="color: #28a745;">Rp {total_masuk:,.0f}</div>
+    </div>
+    <div class="metric-box">
+        <div class="metric-header bg-danger">Total Pengeluaran</div>
+        <div class="metric-value" style="color: #dc3545;">Rp {total_keluar:,.0f}</div>
+    </div>
+    <div class="metric-box">
+        <div class="metric-header bg-primary">Saldo Akhir (Awal + Transaksi)</div>
+        <div class="metric-value" style="color: #0d6efd;">Rp {saldo_akhir:,.0f}</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-st.markdown("---")
 
-# --- GRAFIK (VISUALISASI) ---
-col_grafik1, col_grafik2 = st.columns(2)
+# --- FORM INPUT TRANSAKSI (HORIZONTAL DI HALAMAN UTAMA) ---
+# Header Biru
+st.markdown('<div class="form-header">Input Transaksi Baru</div>', unsafe_allow_html=True)
 
-# Order bulan
-order_bulan = ['January', 'February', 'March', 'April', 'May', 'June', 
-               'July', 'August', 'September', 'October', 'November', 'December']
+# Form Container
+with st.form("form_transaksi", clear_on_submit=True):
+    # Baris 1: Tanggal, Tipe, Kategori (Horizontal)
+    col_f1, col_f2, col_f3 = st.columns(3)
+    with col_f1:
+        tgl = st.date_input("Tanggal", datetime.now())
+    with col_f2:
+        jenis = st.selectbox("Tipe", ["Pengeluaran", "Pemasukan"])
+    with col_f3:
+        # Opsi kategori tergantung jenis
+        if jenis == "Pemasukan":
+            kategori_opsi = ["Gaji", "Dividen", "Bonus", "Lainnya"]
+        else:
+            kategori_opsi = ["Kebutuhan Pokok", "Transportasi", "Kendaraan", "Tagihan", "Hiburan", "Investasi", "Lainnya"]
+        kategori = st.selectbox("Kategori", kategori_opsi)
+    
+    # Baris 2: Nominal dan Catatan (Horizontal)
+    col_f4, col_f5 = st.columns([1, 2]) # Kolom catatan lebih lebar
+    with col_f4:
+        jumlah = st.number_input("Nominal (Rp)", min_value=0, step=1000, format="%d")
+    with col_f5:
+        ket = st.text_input("Catatan (Opsional)", placeholder="Contoh: Bensin, Service motor...")
+    
+    # Tombol Submit Lebar Penuh
+    submit = st.form_submit_button("Simpan Transaksi", use_container_width=True, type="primary")
 
-# Grouping data per bulan
-df_bulan = df_filtered.groupby(['Bulan', 'Jenis'])['Jumlah'].sum().reset_index()
+    if submit:
+        if jumlah > 0:
+            new_data = pd.DataFrame([{
+                "Tanggal": pd.to_datetime(tgl),
+                "Kategori": kategori,
+                "Jenis": jenis,
+                "Jumlah": jumlah,
+                "Keterangan": ket,
+                "Bulan": tgl.strftime("%B"),
+                "Tahun": tgl.year
+            }])
+            updated_df = pd.concat([df, new_data], ignore_index=True)
+            with st.spinner('Menyimpan ke Google Sheets...'):
+                save_data(updated_df)
+            st.success("Data berhasil disimpan!")
+            st.rerun()
+        else:
+            st.error("Nominal harus lebih dari 0.")
 
-with col_grafik1:
-    st.subheader("Grafik Arus Kas Bulanan")
-    if not df_bulan.empty:
-        fig_bar = px.bar(df_bulan, x='Bulan', y='Jumlah', color='Jenis', 
-                         barmode='group', category_orders={"Bulan": order_bulan},
-                         color_discrete_map={"Pemasukan": "green", "Pengeluaran": "red"})
-        st.plotly_chart(fig_bar, use_container_width=True)
+# --- RIWAYAT TRANSAKSI (TABEL STYLED) ---
+st.markdown('<div class="table-header">🕒 Riwayat Transaksi</div>', unsafe_allow_html=True)
 
-# Grafik 2: Komposisi Pengeluaran
-df_expense = df_filtered[df_filtered['Jenis'] == 'Pengeluaran']
-with col_grafik2:
-    st.subheader("Proporsi Pengeluaran & Investasi")
-    if not df_expense.empty:
-        fig_pie = px.pie(df_expense, values='Jumlah', names='Kategori', hole=0.4)
-        st.plotly_chart(fig_pie, use_container_width=True)
+if df.empty:
+    st.info("Belum ada data transaksi.")
+else:
+    # 1. Filter Sederhana (Opsional, agar mirip referensi)
+    col_filter1, col_filter2 = st.columns([1,3])
+    with col_filter1:
+        st.selectbox("Filter Waktu", ["Semua Waktu", "Bulan Ini (Demo)"], disabled=True) # Placeholder
+        
+    # 2. Persiapan Data untuk Tabel
+    df_display = df.copy()
+    df_display = df_display.sort_values(by="Tanggal", ascending=False)
+    
+    # Format Tanggal agar lebih rapi
+    df_display['Tanggal'] = df_display['Tanggal'].dt.strftime('%d-%m-%Y')
+    
+    # Format Jumlah menjadi string Rupiah untuk tampilan tabel
+    df_display['Nominal'] = df_display['Jumlah'].apply(lambda x: f"Rp {x:,.0f}")
 
-# --- TABEL DETAIL ---
-st.subheader("📄 Laporan Detail Transaksi")
-# Format tanggal agar enak dilihat di tabel
-df_display = df_filtered.copy()
-df_display['Tanggal'] = df_display['Tanggal'].dt.strftime('%Y-%m-%d')
-st.dataframe(df_display.sort_values(by="Tanggal", ascending=False), use_container_width=True)
+    # Pilih dan urutkan kolom yang mau ditampilkan
+    df_final = df_display[['Tanggal', 'Jenis', 'Kategori', 'Nominal', 'Keterangan']]
+    df_final = df_final.rename(columns={'Jenis': 'Tipe', 'Keterangan': 'Catatan'})
 
-# --- LAPORAN TAHUNAN (SUMMARY) ---
-st.markdown("---")
-st.subheader(f"Laporan Rekapitulasi Tahun {pilih_tahun}")
-summary_table = df_filtered.groupby(['Bulan', 'Jenis'])['Jumlah'].sum().unstack().fillna(0)
-summary_table = summary_table.reindex(order_bulan).dropna(how='all')
-st.table(summary_table.style.format("Rp {:,.0f}"))
+    # 3. Styling Tabel (Memberi warna pada kolom Tipe/Jenis)
+    def style_tipe(val):
+        color = 'white'
+        bg_color = '#dc3545' # Merah default (Pengeluaran)
+        if val == 'Pemasukan':
+            bg_color = '#28a745' # Hijau
+        
+        # CSS untuk badge di dalam sel tabel
+        return f'background-color: {bg_color}; color: {color}; border-radius: 12px; padding: 4px 10px; font-weight: bold; text-align: center; display: inline-block;'
+
+    # Terapkan styling
+    styled_df = df_final.style.map(style_tipe, subset=['Tipe'])
+
+    # Tampilkan tabel dengan dataframe yang sudah di-style
+    st.dataframe(
+        styled_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Tipe": st.column_config.TextColumn(width="small"),
+            "Nominal": st.column_config.TextColumn(width="medium"),
+             "Catatan": st.column_config.TextColumn(width="large"),
+        }
+    )
