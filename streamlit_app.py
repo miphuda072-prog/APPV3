@@ -16,27 +16,29 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- FUNGSI LOAD & SAVE DATA ---
 def load_data():
-try:
-# Membaca data dari Google Sheets (Sheet1)
-# ttl=0 agar data tidak di-cache (selalu fresh saat di-reload)
-df = conn.read(worksheet="Sheet1", ttl=0)
-# Jika sheet masih kosong, kembalikan dataframe dengan struktur kolom
-if df.empty:
-return pd.DataFrame(columns=["Tanggal", "Kategori", "Jenis", "Jumlah", "Keterangan", "Bulan", "Tahun"])
-# Pastikan kolom Tanggal dibaca sebagai datetime
-df['Tanggal'] = pd.to_datetime(df['Tanggal'])
-return df
-except Exception as e:
-# Jika terjadi error (misal sheet baru dibuat), buat struktur awal
-return pd.DataFrame(columns=["Tanggal", "Kategori", "Jenis", "Jumlah", "Keterangan", "Bulan", "Tahun"])
+    try:
+        # Membaca data dari Google Sheets (Sheet1)
+        # ttl=0 agar data tidak di-cache (selalu fresh saat di-reload)
+        df = conn.read(worksheet="Sheet1", ttl=0)
+        
+        # Jika sheet masih kosong, kembalikan dataframe dengan struktur kolom
+        if df.empty:
+             return pd.DataFrame(columns=["Tanggal", "Kategori", "Jenis", "Jumlah", "Keterangan", "Bulan", "Tahun"])
+        
+        # Pastikan kolom Tanggal dibaca sebagai datetime
+        df['Tanggal'] = pd.to_datetime(df['Tanggal'])
+        return df
+        
+    except Exception as e:
+        # Jika terjadi error (misal sheet baru dibuat), buat struktur awal
+        return pd.DataFrame(columns=["Tanggal", "Kategori", "Jenis", "Jumlah", "Keterangan", "Bulan", "Tahun"])
 
 def save_data(df):
-# Mengupdate data ke Google Sheets
-# Pastikan format tanggal diubah menjadi string agar kompatibel dengan JSON/Sheets
-df_save = df.copy()
-df_save['Tanggal'] = df_save['Tanggal'].astype(str)
-conn.update(worksheet="Sheet1", data=df_save)
-
+    # Mengupdate data ke Google Sheets
+    # Pastikan format tanggal diubah menjadi string agar kompatibel dengan JSON/Sheets
+    df_save = df.copy()
+    df_save['Tanggal'] = df_save['Tanggal'].astype(str) 
+    conn.update(worksheet="Sheet1", data=df_save)
 # Load data saat aplikasi dibuka
 df = load_data()
 
