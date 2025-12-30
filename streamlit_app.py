@@ -127,7 +127,6 @@ else:
 saldo_akhir = saldo_awal + total_masuk - total_keluar
 
 # --- TAMPILAN METRIK (CUSTOM HTML) ---
-# Menggunakan HTML langsung agar mirip dengan kotak berwarna di referensi
 st.markdown(f"""
 <div class="metric-container">
     <div class="metric-box">
@@ -139,7 +138,7 @@ st.markdown(f"""
         <div class="metric-value" style="color: #dc3545;">Rp {total_keluar:,.0f}</div>
     </div>
     <div class="metric-box">
-        <div class="metric-header bg-primary">Saldo Akhir (Awal + Transaksi)</div>
+        <div class="metric-header bg-primary">Saldo Akhir</div>
         <div class="metric-value" style="color: #0d6efd;">Rp {saldo_akhir:,.0f}</div>
     </div>
 </div>
@@ -159,11 +158,23 @@ with st.form("form_transaksi", clear_on_submit=True):
     with col_f2:
         jenis = st.selectbox("Tipe", ["Pengeluaran", "Pemasukan"])
     with col_f3:
-        # Opsi kategori tergantung jenis
+        # LOGIKA KATEGORI (SUDAH DITAMBAHKAN GAJI)
         if jenis == "Pemasukan":
-            kategori_opsi = ["Gaji", "Dividen", "Bonus", "Lainnya"]
+            # Gaji ada di sini sebagai pemasukan
+            kategori_opsi = ["Gaji", "Tunjangan", "Dividen", "Bonus", "Lainnya"]
         else:
-            kategori_opsi = ["Kebutuhan Pokok", "Transportasi", "Kendaraan", "Tagihan", "Hiburan", "Investasi", "Lainnya"]
+            # Gaji Karyawan juga ditambahkan di pengeluaran jika perlu membayar orang
+            kategori_opsi = [
+                "Kebutuhan Pokok", 
+                "Transportasi", 
+                "Makan & Minum",
+                "Gaji Karyawan/ART", 
+                "Kendaraan", 
+                "Tagihan", 
+                "Hiburan", 
+                "Investasi", 
+                "Lainnya"
+            ]
         kategori = st.selectbox("Kategori", kategori_opsi)
     
     # Baris 2: Nominal dan Catatan (Horizontal)
@@ -201,39 +212,38 @@ st.markdown('<div class="table-header">🕒 Riwayat Transaksi</div>', unsafe_all
 if df.empty:
     st.info("Belum ada data transaksi.")
 else:
-    # 1. Filter Sederhana (Opsional, agar mirip referensi)
+    # 1. Filter Sederhana
     col_filter1, col_filter2 = st.columns([1,3])
     with col_filter1:
-        st.selectbox("Filter Waktu", ["Semua Waktu", "Bulan Ini (Demo)"], disabled=True) # Placeholder
+        st.selectbox("Filter Waktu", ["Semua Waktu", "Bulan Ini"], disabled=True)
         
     # 2. Persiapan Data untuk Tabel
     df_display = df.copy()
     df_display = df_display.sort_values(by="Tanggal", ascending=False)
     
-    # Format Tanggal agar lebih rapi
+    # Format Tanggal
     df_display['Tanggal'] = df_display['Tanggal'].dt.strftime('%d-%m-%Y')
     
-    # Format Jumlah menjadi string Rupiah untuk tampilan tabel
+    # Format Jumlah jadi Rupiah
     df_display['Nominal'] = df_display['Jumlah'].apply(lambda x: f"Rp {x:,.0f}")
 
-    # Pilih dan urutkan kolom yang mau ditampilkan
+    # Pilih Kolom
     df_final = df_display[['Tanggal', 'Jenis', 'Kategori', 'Nominal', 'Keterangan']]
     df_final = df_final.rename(columns={'Jenis': 'Tipe', 'Keterangan': 'Catatan'})
 
-    # 3. Styling Tabel (Memberi warna pada kolom Tipe/Jenis)
+    # 3. Styling Tabel
     def style_tipe(val):
         color = 'white'
-        bg_color = '#dc3545' # Merah default (Pengeluaran)
+        bg_color = '#dc3545' # Merah default
         if val == 'Pemasukan':
             bg_color = '#28a745' # Hijau
         
-        # CSS untuk badge di dalam sel tabel
         return f'background-color: {bg_color}; color: {color}; border-radius: 12px; padding: 4px 10px; font-weight: bold; text-align: center; display: inline-block;'
 
     # Terapkan styling
     styled_df = df_final.style.map(style_tipe, subset=['Tipe'])
 
-    # Tampilkan tabel dengan dataframe yang sudah di-style
+    # Tampilkan tabel
     st.dataframe(
         styled_df,
         use_container_width=True,
