@@ -3,100 +3,104 @@ import pandas as pd
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
-# --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="APPV3 Keuangan", layout="wide")
+# --- 1. KONFIGURASI HALAMAN (MOBILE FRIENDLY) ---
+st.set_page_config(page_title="APPV3 Mobile Banking", layout="centered") # Layout centered agar seperti HP
 
-# --- CSS KUSTOM UNTUK MENIRU TAMPILAN REFERENSI ---
+# --- 2. CSS CUSTOM (GAYA M-BANKING) ---
 st.markdown("""
 <style>
-    /* Mengatur font dan background dasar agar lebih bersih */
+    /* Background App agar sedikit abu-abu lembut */
     .stApp {
-        background-color: #f8f9fa;
-        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    }
-    
-    /* Styling untuk Judul Utama */
-    .main-title {
-        text-align: center;
-        font-weight: 700;
-        color: #333;
-        margin-bottom: 0px;
-    }
-    .sub-title {
-        text-align: center;
-        color: #666;
-        font-size: 16px;
-        margin-bottom: 30px;
+        background-color: #f0f2f5;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
     }
 
-    /* Styling Custom Metric Box */
-    .metric-container {
-        display: flex;
-        gap: 15px;
-        margin-bottom: 30px;
+    /* MENYEMBUNYIKAN HEADER BAWAAN STREAMLIT AGAR SEPERTI APP NATIVE */
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+
+    /* KARTU ATM (SALDO UTAMA) */
+    .bank-card {
+        background: linear-gradient(135deg, #0061ff 0%, #60efff 100%);
+        border-radius: 20px;
+        color: white;
+        padding: 25px;
+        box-shadow: 0 10px 20px rgba(0, 97, 255, 0.3);
+        margin-bottom: 25px;
+        position: relative;
+        overflow: hidden;
     }
-    .metric-box {
+    .bank-card h3 {
+        color: rgba(255,255,255,0.8);
+        font-size: 14px;
+        font-weight: 400;
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .bank-card h1 {
+        color: white;
+        font-size: 32px;
+        font-weight: 700;
+        margin: 10px 0 20px 0;
+    }
+    .card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .chip {
+        width: 40px;
+        height: 30px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 5px;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+    .card-brand {
+        font-weight: bold;
+        font-style: italic;
+        font-size: 18px;
+    }
+
+    /* CONTAINER RINGKASAN (Income/Expense) */
+    .summary-container {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .summary-box {
         flex: 1;
         background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        overflow: hidden;
-        text-align: center;
-        border: 1px solid #e0e0e0;
-    }
-    .metric-header {
-        padding: 10px;
-        font-weight: 600;
-        color: white;
-    }
-    .metric-value {
-        padding: 20px;
-        font-size: 24px;
-        font-weight: bold;
-        color: #333;
-    }
-    /* Warna Header Metric */
-    .bg-success { background-color: #28a745; } /* Hijau Pemasukan */
-    .bg-danger { background-color: #dc3545; }  /* Merah Pengeluaran */
-    .bg-primary { background-color: #0d6efd; } /* Biru Saldo */
-
-    /* Styling Header Form Biru */
-    .form-header {
-        background-color: #0d6efd;
-        color: white;
         padding: 15px;
-        border-radius: 8px 8px 0 0;
-        font-weight: 600;
+        border-radius: 15px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
-    /* Styling Container Form agar menyatu dengan header */
-    [data-testid="stForm"] {
-        border-radius: 0 0 8px 8px;
-        border: 1px solid #e0e0e0;
-        border-top: none;
-        padding: 20px;
-        background-color: white;
-    }
-    
-    /* Styling Header Tabel Riwayat */
-    .table-header {
-        margin-top: 30px;
-        margin-bottom: 15px;
-        font-size: 20px;
-        font-weight: 600;
+    .sum-label { font-size: 12px; color: #888; margin-bottom: 5px; }
+    .sum-val-in { color: #28a745; font-weight: bold; font-size: 16px; }
+    .sum-val-out { color: #dc3545; font-weight: bold; font-size: 16px; }
+
+    /* SECTION HEADER */
+    .section-title {
+        font-size: 18px;
+        font-weight: 700;
         color: #333;
+        margin-top: 20px;
+        margin-bottom: 15px;
+    }
+
+    /* TOMBOL INPUT */
+    .stButton button {
+        width: 100%;
+        border-radius: 10px;
+        font-weight: 600;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- JUDUL APLIKASI (DI TENGAN) ---
-st.markdown("<h1 class='main-title'>APPV3</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-title'>Mengelola keuangan Anda lebih baik.</p>", unsafe_allow_html=True)
-
-
-# --- KONEKSI KE GOOGLE SHEETS ---
+# --- 3. KONEKSI & LOAD DATA ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- FUNGSI LOAD & SAVE DATA ---
 def load_data():
     try:
         df = conn.read(worksheet="Sheet1", ttl=0)
@@ -104,7 +108,7 @@ def load_data():
              return pd.DataFrame(columns=["Tanggal", "Kategori", "Jenis", "Jumlah", "Keterangan", "Bulan", "Tahun"])
         df['Tanggal'] = pd.to_datetime(df['Tanggal'])
         return df
-    except Exception as e:
+    except:
         return pd.DataFrame(columns=["Tanggal", "Kategori", "Jenis", "Jumlah", "Keterangan", "Bulan", "Tahun"])
 
 def save_data(df):
@@ -112,10 +116,9 @@ def save_data(df):
     df_save['Tanggal'] = df_save['Tanggal'].astype(str) 
     conn.update(worksheet="Sheet1", data=df_save)
 
-# Load data saat aplikasi dibuka
 df = load_data()
 
-# --- PERHITUNGAN METRIK ---
+# --- 4. LOGIKA SALDO ---
 saldo_awal = 4341114 
 if not df.empty:
     total_masuk = df[df['Jenis'] == 'Pemasukan']['Jumlah'].sum()
@@ -123,134 +126,109 @@ if not df.empty:
 else:
     total_masuk = 0
     total_keluar = 0
-
 saldo_akhir = saldo_awal + total_masuk - total_keluar
 
-# --- TAMPILAN METRIK (CUSTOM HTML) ---
+# --- 5. UI: HEADER (SAPAAN) ---
+col_head1, col_head2 = st.columns([3,1])
+with col_head1:
+    st.markdown("##### Selamat Datang,")
+    st.markdown("## Bos Keuangan 👋")
+with col_head2:
+    # Placeholder foto profil (Icon)
+    st.markdown("<div style='background:#ddd; width:50px; height:50px; border-radius:50%; text-align:center; line-height:50px;'>👤</div>", unsafe_allow_html=True)
+
+# --- 6. UI: KARTU ATM (SALDO) ---
 st.markdown(f"""
-<div class="metric-container">
-    <div class="metric-box">
-        <div class="metric-header bg-success">Total Pemasukan</div>
-        <div class="metric-value" style="color: #28a745;">Rp {total_masuk:,.0f}</div>
-    </div>
-    <div class="metric-box">
-        <div class="metric-header bg-danger">Total Pengeluaran</div>
-        <div class="metric-value" style="color: #dc3545;">Rp {total_keluar:,.0f}</div>
-    </div>
-    <div class="metric-box">
-        <div class="metric-header bg-primary">Saldo Akhir</div>
-        <div class="metric-value" style="color: #0d6efd;">Rp {saldo_akhir:,.0f}</div>
+<div class="bank-card">
+    <h3>TOTAL SALDO</h3>
+    <h1>Rp {saldo_akhir:,.0f}</h1>
+    <div class="card-footer">
+        <div class="chip"></div>
+        <div class="card-brand">APPV3 Platinum</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
+# --- 7. UI: RINGKASAN MASUK/KELUAR ---
+st.markdown(f"""
+<div class="summary-container">
+    <div class="summary-box">
+        <div class="sum-label">Pemasukan (Total)</div>
+        <div class="sum-val-in">▲ Rp {total_masuk:,.0f}</div>
+    </div>
+    <div class="summary-box">
+        <div class="sum-label">Pengeluaran (Total)</div>
+        <div class="sum-val-out">▼ Rp {total_keluar:,.0f}</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-# --- FORM INPUT TRANSAKSI (HORIZONTAL DI HALAMAN UTAMA) ---
-# Header Biru
-st.markdown('<div class="form-header">Input Transaksi Baru</div>', unsafe_allow_html=True)
+# --- 8. UI: TOMBOL TRANSAKSI (COLLAPSIBLE) ---
+# Menggunakan Expander agar menu tidak memenuhi layar (Khas Mobile App)
+with st.expander("➕  TAMBAH TRANSAKSI BARU", expanded=False):
+    with st.form("form_m_banking", clear_on_submit=True):
+        st.caption("Input detail transaksi Anda di bawah ini")
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            tgl = st.date_input("Tanggal", datetime.now())
+            jenis = st.selectbox("Jenis", ["Pengeluaran", "Pemasukan"])
+        with c2:
+            jumlah = st.number_input("Nominal (Rp)", min_value=0, step=1000)
+            
+            # Kategori Dinamis
+            if jenis == "Pemasukan":
+                opsi = ["Gaji", "Tunjangan", "Bonus", "Investasi", "Lainnya"]
+            else:
+                opsi = ["Makan & Minum", "Transportasi", "Gaji Karyawan", "Belanja", "Tagihan", "Hiburan", "Lainnya"]
+            kategori = st.selectbox("Kategori", opsi)
+            
+        ket = st.text_input("Catatan", placeholder="Cth: Beli Kopi, Bayar Listrik...")
+        
+        # Tombol Submit Full Width
+        btn_submit = st.form_submit_button("KIRIM TRANSAKSI", type="primary", use_container_width=True)
 
-# Form Container
-with st.form("form_transaksi", clear_on_submit=True):
-    # Baris 1: Tanggal, Tipe, Kategori (Horizontal)
-    col_f1, col_f2, col_f3 = st.columns(3)
-    with col_f1:
-        tgl = st.date_input("Tanggal", datetime.now())
-    with col_f2:
-        jenis = st.selectbox("Tipe", ["Pengeluaran", "Pemasukan"])
-    with col_f3:
-        # LOGIKA KATEGORI (SUDAH DITAMBAHKAN GAJI)
-        if jenis == "Pemasukan":
-            # Gaji ada di sini sebagai pemasukan
-            kategori_opsi = ["Gaji", "Tunjangan", "Dividen", "Bonus", "Lainnya"]
-        else:
-            # Gaji Karyawan juga ditambahkan di pengeluaran jika perlu membayar orang
-            kategori_opsi = [
-                "Kebutuhan Pokok", 
-                "Transportasi", 
-                "Makan & Minum",
-                "Gaji Karyawan/ART", 
-                "Kendaraan", 
-                "Tagihan", 
-                "Hiburan", 
-                "Investasi", 
-                "Lainnya"
-            ]
-        kategori = st.selectbox("Kategori", kategori_opsi)
-    
-    # Baris 2: Nominal dan Catatan (Horizontal)
-    col_f4, col_f5 = st.columns([1, 2]) # Kolom catatan lebih lebar
-    with col_f4:
-        jumlah = st.number_input("Nominal (Rp)", min_value=0, step=1000, format="%d")
-    with col_f5:
-        ket = st.text_input("Catatan (Opsional)", placeholder="Contoh: Bensin, Service motor...")
-    
-    # Tombol Submit Lebar Penuh
-    submit = st.form_submit_button("Simpan Transaksi", use_container_width=True, type="primary")
+        if btn_submit:
+            if jumlah > 0:
+                new_data = pd.DataFrame([{
+                    "Tanggal": pd.to_datetime(tgl),
+                    "Kategori": kategori,
+                    "Jenis": jenis,
+                    "Jumlah": jumlah,
+                    "Keterangan": ket,
+                    "Bulan": tgl.strftime("%B"),
+                    "Tahun": tgl.year
+                }])
+                updated_df = pd.concat([df, new_data], ignore_index=True)
+                with st.spinner('Memproses transaksi...'):
+                    save_data(updated_df)
+                st.toast("Transaksi Berhasil!", icon="✅")
+                st.rerun()
+            else:
+                st.error("Nominal tidak boleh 0")
 
-    if submit:
-        if jumlah > 0:
-            new_data = pd.DataFrame([{
-                "Tanggal": pd.to_datetime(tgl),
-                "Kategori": kategori,
-                "Jenis": jenis,
-                "Jumlah": jumlah,
-                "Keterangan": ket,
-                "Bulan": tgl.strftime("%B"),
-                "Tahun": tgl.year
-            }])
-            updated_df = pd.concat([df, new_data], ignore_index=True)
-            with st.spinner('Menyimpan ke Google Sheets...'):
-                save_data(updated_df)
-            st.success("Data berhasil disimpan!")
-            st.rerun()
-        else:
-            st.error("Nominal harus lebih dari 0.")
-
-# --- RIWAYAT TRANSAKSI (TABEL STYLED) ---
-st.markdown('<div class="table-header">🕒 Riwayat Transaksi</div>', unsafe_allow_html=True)
+# --- 9. UI: RIWAYAT TRANSAKSI (LIST VIEW) ---
+st.markdown('<div class="section-title">Riwayat Terakhir</div>', unsafe_allow_html=True)
 
 if df.empty:
-    st.info("Belum ada data transaksi.")
+    st.info("Belum ada riwayat transaksi.")
 else:
-    # 1. Filter Sederhana
-    col_filter1, col_filter2 = st.columns([1,3])
-    with col_filter1:
-        st.selectbox("Filter Waktu", ["Semua Waktu", "Bulan Ini"], disabled=True)
-        
-    # 2. Persiapan Data untuk Tabel
-    df_display = df.copy()
-    df_display = df_display.sort_values(by="Tanggal", ascending=False)
+    # Persiapan Data Tampilan
+    df_view = df.copy().sort_values(by="Tanggal", ascending=False)
     
-    # Format Tanggal
-    df_display['Tanggal'] = df_display['Tanggal'].dt.strftime('%d-%m-%Y')
-    
-    # Format Jumlah jadi Rupiah
-    df_display['Nominal'] = df_display['Jumlah'].apply(lambda x: f"Rp {x:,.0f}")
-
-    # Pilih Kolom
-    df_final = df_display[['Tanggal', 'Jenis', 'Kategori', 'Nominal', 'Keterangan']]
-    df_final = df_final.rename(columns={'Jenis': 'Tipe', 'Keterangan': 'Catatan'})
-
-    # 3. Styling Tabel
-    def style_tipe(val):
-        color = 'white'
-        bg_color = '#dc3545' # Merah default
-        if val == 'Pemasukan':
-            bg_color = '#28a745' # Hijau
-        
-        return f'background-color: {bg_color}; color: {color}; border-radius: 12px; padding: 4px 10px; font-weight: bold; text-align: center; display: inline-block;'
-
-    # Terapkan styling
-    styled_df = df_final.style.map(style_tipe, subset=['Tipe'])
-
-    # Tampilkan tabel
+    # Kita buat tampilan tabel yang sangat bersih
+    # Menggunakan Column Config Streamlit untuk styling
     st.dataframe(
-        styled_df,
+        df_view[['Tanggal', 'Kategori', 'Jumlah', 'Jenis']],
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Tipe": st.column_config.TextColumn(width="small"),
-            "Nominal": st.column_config.TextColumn(width="medium"),
-             "Catatan": st.column_config.TextColumn(width="large"),
+            "Tanggal": st.column_config.DateColumn("Tgl", format="DD/MM/YY"),
+            "Kategori": st.column_config.TextColumn("Detail", width="medium"),
+            "Jenis": st.column_config.TextColumn("Tipe", width="small"),
+            "Jumlah": st.column_config.NumberColumn(
+                "Nominal",
+                format="Rp %d",
+            )
         }
     )
