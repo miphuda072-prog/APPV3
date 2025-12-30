@@ -11,7 +11,6 @@ st.set_page_config(page_title="Keuangan Real-Time", layout="wide")
 st.title("💰 Aplikasi Keuangan & Investasi (Google Sheets)")
 
 # --- KONEKSI KE GOOGLE SHEETS ---
-# Membuka koneksi menggunakan credential yang ada di Secrets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- FUNGSI LOAD & SAVE DATA ---
@@ -47,7 +46,6 @@ df = load_data()
 st.sidebar.header("📝 Input Transaksi Baru")
 
 with st.sidebar.form("form_transaksi", clear_on_submit=True):
-    # BAGIAN INI YANG TADI ERROR (SEKARANG SUDAH MENJOROK KE DALAM)
     tgl = st.date_input("Tanggal", datetime.now())
     
     # Kategori sesuai permintaan
@@ -102,18 +100,29 @@ if tahun_list:
 else:
     df_filtered = df # Fallback jika tahun belum terdeteksi
 
-# --- REKAP & METRIK ---
-col1, col2, col3, col4 = st.columns(4)
+st.markdown("---")
 
+# --- REKAP & METRIK (DENGAN SALDO AWAL) ---
+# Menggunakan 5 Kolom agar Saldo Awal muat
+col1, col2, col3, col4, col5 = st.columns(5)
+
+# SETTING SALDO AWAL
+saldo_awal = 4341114 
+
+# Hitung Total Masuk & Keluar dari Data yang difilter
 total_masuk = df_filtered[df_filtered['Jenis'] == 'Pemasukan']['Jumlah'].sum()
 total_keluar = df_filtered[df_filtered['Jenis'] == 'Pengeluaran']['Jumlah'].sum()
 total_invest = df_filtered[df_filtered['Kategori'] == 'Investasi']['Jumlah'].sum()
-saldo = total_masuk - total_keluar
 
-col1.metric("Total Pemasukan", f"Rp {total_masuk:,.0f}")
-col2.metric("Total Pengeluaran", f"Rp {total_keluar:,.0f}")
-col3.metric("Total Investasi", f"Rp {total_invest:,.0f}")
-col4.metric("Sisa Saldo", f"Rp {saldo:,.0f}")
+# RUMUS SALDO AKHIR: Saldo Awal + (Masuk - Keluar)
+saldo_akhir = saldo_awal + total_masuk - total_keluar
+
+# Tampilkan Metrik
+col1.metric("Saldo Awal", f"Rp {saldo_awal:,.0f}")
+col2.metric("Total Pemasukan", f"Rp {total_masuk:,.0f}")
+col3.metric("Total Pengeluaran", f"Rp {total_keluar:,.0f}")
+col4.metric("Total Investasi", f"Rp {total_invest:,.0f}")
+col5.metric("Sisa Saldo Akhir", f"Rp {saldo_akhir:,.0f}")
 
 st.markdown("---")
 
