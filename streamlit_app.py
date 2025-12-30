@@ -4,7 +4,7 @@ from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
 # --- 1. KONFIGURASI HALAMAN (MOBILE FRIENDLY) ---
-st.set_page_config(page_title="APPV3 Mobile Banking", layout="centered") # Layout centered agar seperti HP
+st.set_page_config(page_title="APPV3 Mobile Banking", layout="centered") 
 
 # --- 2. CSS CUSTOM (GAYA M-BANKING) ---
 st.markdown("""
@@ -15,7 +15,7 @@ st.markdown("""
         font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
     }
 
-    /* MENYEMBUNYIKAN HEADER BAWAAN STREAMLIT AGAR SEPERTI APP NATIVE */
+    /* MENYEMBUNYIKAN HEADER BAWAAN STREAMLIT */
     header {visibility: hidden;}
     footer {visibility: hidden;}
 
@@ -62,7 +62,7 @@ st.markdown("""
         font-size: 18px;
     }
 
-    /* CONTAINER RINGKASAN (Income/Expense) */
+    /* CONTAINER RINGKASAN (3 KOTAK: Masuk, Keluar, Invest) */
     .summary-container {
         display: flex;
         gap: 10px;
@@ -75,10 +75,18 @@ st.markdown("""
         border-radius: 15px;
         text-align: center;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        min-width: 0; /* Agar tidak pecah di layar kecil */
     }
-    .sum-label { font-size: 12px; color: #888; margin-bottom: 5px; }
-    .sum-val-in { color: #28a745; font-weight: bold; font-size: 16px; }
-    .sum-val-out { color: #dc3545; font-weight: bold; font-size: 16px; }
+    .sum-label { 
+        font-size: 11px; 
+        color: #888; 
+        margin-bottom: 5px; 
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .sum-val-in { color: #28a745; font-weight: bold; font-size: 14px; }
+    .sum-val-out { color: #dc3545; font-weight: bold; font-size: 14px; }
+    .sum-val-inv { color: #6610f2; font-weight: bold; font-size: 14px; } /* Warna Ungu untuk Investasi */
 
     /* SECTION HEADER */
     .section-title {
@@ -118,29 +126,38 @@ def save_data(df):
 
 df = load_data()
 
-# --- 4. LOGIKA SALDO ---
-saldo_awal = 4341114 
+# --- 4. LOGIKA SALDO (UPDATE: AWAL = 0 & HITUNG INVESTASI) ---
+saldo_awal = 0  # <--- SUDAH DIUBAH MENJADI 0
+
 if not df.empty:
+    # Hitung total per Jenis
     total_masuk = df[df['Jenis'] == 'Pemasukan']['Jumlah'].sum()
     total_keluar = df[df['Jenis'] == 'Pengeluaran']['Jumlah'].sum()
+    
+    # Hitung khusus Investasi (diambil dari Kategori 'Investasi')
+    total_invest = df[df['Kategori'] == 'Investasi']['Jumlah'].sum()
 else:
     total_masuk = 0
     total_keluar = 0
+    total_invest = 0
+
+# Rumus Saldo Kas (Uang Tunai)
+# Catatan: Investasi biasanya tercatat sebagai "Pengeluaran" (uang keluar dari dompet), 
+# jadi Saldo Akhir tetap = Masuk - Keluar. 
 saldo_akhir = saldo_awal + total_masuk - total_keluar
 
-# --- 5. UI: HEADER (SAPAAN) ---
+# --- 5. UI: HEADER ---
 col_head1, col_head2 = st.columns([3,1])
 with col_head1:
     st.markdown("##### Selamat Datang,")
     st.markdown("## Bos Keuangan 👋")
 with col_head2:
-    # Placeholder foto profil (Icon)
-    st.markdown("<div style='background:#ddd; width:50px; height:50px; border-radius:50%; text-align:center; line-height:50px;'>👤</div>", unsafe_allow_html=True)
+    st.markdown("<div style='background:#ddd; width:50px; height:50px; border-radius:50%; text-align:center; line-height:50px; font-size:24px;'>👤</div>", unsafe_allow_html=True)
 
-# --- 6. UI: KARTU ATM (SALDO) ---
+# --- 6. UI: KARTU ATM (SALDO KAS) ---
 st.markdown(f"""
 <div class="bank-card">
-    <h3>TOTAL SALDO</h3>
+    <h3>SISA SALDO KAS</h3>
     <h1>Rp {saldo_akhir:,.0f}</h1>
     <div class="card-footer">
         <div class="chip"></div>
@@ -149,22 +166,25 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# --- 7. UI: RINGKASAN MASUK/KELUAR ---
+# --- 7. UI: RINGKASAN (3 KOTAK: PEMASUKAN, PENGELUARAN, INVESTASI) ---
 st.markdown(f"""
 <div class="summary-container">
     <div class="summary-box">
-        <div class="sum-label">Pemasukan (Total)</div>
+        <div class="sum-label">Pemasukan</div>
         <div class="sum-val-in">▲ Rp {total_masuk:,.0f}</div>
     </div>
     <div class="summary-box">
-        <div class="sum-label">Pengeluaran (Total)</div>
+        <div class="sum-label">Pengeluaran</div>
         <div class="sum-val-out">▼ Rp {total_keluar:,.0f}</div>
+    </div>
+    <div class="summary-box">
+        <div class="sum-label">Aset Investasi</div>
+        <div class="sum-val-inv">★ Rp {total_invest:,.0f}</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 # --- 8. UI: TOMBOL TRANSAKSI (COLLAPSIBLE) ---
-# Menggunakan Expander agar menu tidak memenuhi layar (Khas Mobile App)
 with st.expander("➕  TAMBAH TRANSAKSI BARU", expanded=False):
     with st.form("form_m_banking", clear_on_submit=True):
         st.caption("Input detail transaksi Anda di bawah ini")
@@ -178,14 +198,14 @@ with st.expander("➕  TAMBAH TRANSAKSI BARU", expanded=False):
             
             # Kategori Dinamis
             if jenis == "Pemasukan":
-                opsi = ["Gaji", "Tunjangan", "Bonus", "Investasi", "Lainnya"]
+                opsi = ["Gaji", "Tunjangan", "Bonus", "Dividen", "Lainnya"]
             else:
-                opsi = ["Makan & Minum", "Transportasi", "Gaji Karyawan", "Belanja", "Tagihan", "Hiburan", "Lainnya"]
+                # PASTIKAN MEMILIH 'INVESTASI' JIKA INGIN MASUK KE KOTAK INVESTASI
+                opsi = ["Makan & Minum", "Transportasi", "Gaji Karyawan", "Belanja", "Tagihan", "Investasi", "Hiburan", "Lainnya"]
             kategori = st.selectbox("Kategori", opsi)
             
-        ket = st.text_input("Catatan", placeholder="Cth: Beli Kopi, Bayar Listrik...")
+        ket = st.text_input("Catatan", placeholder="Cth: Beli Saham BBCA, Bayar Listrik...")
         
-        # Tombol Submit Full Width
         btn_submit = st.form_submit_button("KIRIM TRANSAKSI", type="primary", use_container_width=True)
 
         if btn_submit:
@@ -213,11 +233,8 @@ st.markdown('<div class="section-title">Riwayat Terakhir</div>', unsafe_allow_ht
 if df.empty:
     st.info("Belum ada riwayat transaksi.")
 else:
-    # Persiapan Data Tampilan
     df_view = df.copy().sort_values(by="Tanggal", ascending=False)
     
-    # Kita buat tampilan tabel yang sangat bersih
-    # Menggunakan Column Config Streamlit untuk styling
     st.dataframe(
         df_view[['Tanggal', 'Kategori', 'Jumlah', 'Jenis']],
         use_container_width=True,
