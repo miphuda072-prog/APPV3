@@ -6,7 +6,7 @@ from streamlit_gsheets import GSheetsConnection
 # --- 1. KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="APPV3 Mobile Banking", layout="centered") 
 
-# --- 2. CSS CUSTOM (GAYA M-BANKING MODERN) ---
+# --- 2. CSS CUSTOM (TAMPILAN MODERN) ---
 st.markdown("""
 <style>
     .stApp {
@@ -107,32 +107,23 @@ def save_data(df):
 
 df = load_data()
 
-# --- 4. LOGIKA PEMISAHAN SALDO ---
-# Setting Saldo Awal Sesuai Permintaan
+# --- 4. LOGIKA SALDO ---
 start_cash = 451020.90
 start_invest = 4341114
 
 if not df.empty:
-    # Hitung Arus Kas
     total_masuk = df[df['Jenis'] == 'Pemasukan']['Jumlah'].sum()
     total_keluar = df[df['Jenis'] == 'Pengeluaran']['Jumlah'].sum()
-    
-    # Hitung Penambahan Investasi (Dari kategori 'Investasi' di Pengeluaran)
-    # Asumsinya: Jika kita input Pengeluaran -> Investasi, itu uang pindah dari Cash ke Invest
     penambahan_invest = df[df['Kategori'] == 'Investasi']['Jumlah'].sum()
 else:
     total_masuk = 0; total_keluar = 0; penambahan_invest = 0
 
-# Rumus Akhir
-# 1. Saldo Cash Flow = Awal + Pemasukan - Semua Pengeluaran (termasuk yg dipakai beli investasi)
 saldo_cash_akhir = start_cash + total_masuk - total_keluar
-
-# 2. Saldo Investasi = Awal + Uang yang dialokasikan ke Investasi
 saldo_invest_akhir = start_invest + penambahan_invest
 
 # --- 5. TAMPILAN UI ---
 
-# Header Profil
+# Header
 c1, c2 = st.columns([3,1])
 with c1:
     st.markdown("##### Halo, Bos Keuangan")
@@ -140,9 +131,8 @@ with c1:
 with c2:
     st.markdown("<div style='font-size:30px; text-align:right;'>👨‍💼</div>", unsafe_allow_html=True)
 
-# DUA KARTU BERDAMPINGAN
+# Kartu Saldo
 col_card1, col_card2 = st.columns(2)
-
 with col_card1:
     st.markdown(f"""
     <div class="card-cash">
@@ -151,7 +141,6 @@ with col_card1:
         <div class="card-footer">Liquid Funds</div>
     </div>
     """, unsafe_allow_html=True)
-
 with col_card2:
     st.markdown(f"""
     <div class="card-invest">
@@ -161,7 +150,7 @@ with col_card2:
     </div>
     """, unsafe_allow_html=True)
 
-# RINGKASAN ARUS KAS
+# Ringkasan
 st.markdown(f"""
 <div class="summary-row">
     <div class="mini-box">
@@ -175,17 +164,18 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# FORM INPUT (EXPANDER)
+# Form Input
 with st.expander("➕ INPUT TRANSAKSI BARU", expanded=False):
     with st.form("main_form", clear_on_submit=True):
-        st.info("💡 Tips: Pilih Kategori 'Investasi' untuk memindahkan uang dari Cash ke Aset.")
+        st.info("Tips: Pilih Kategori 'Investasi' untuk memindahkan uang ke Aset.")
         
         c_in1, c_in2 = st.columns(2)
         with c_in1:
             tgl = st.date_input("Tanggal", datetime.now())
             jenis = st.selectbox("Jenis", ["Pengeluaran", "Pemasukan"])
         with c_in2:
-            amt = st.number_input("Nominal (Rp)", min_value=0, step=5000)
+            # Bagian ini hanya input angka, "Rp" akan muncul otomatis di tabel nanti
+            amt = st.number_input("Nominal", min_value=0, step=5000, help="Masukkan angka saja tanpa titik")
             if jenis == "Pemasukan":
                 kat = st.selectbox("Kategori", ["Gaji", "Bonus", "Dividen", "Lainnya"])
             else:
@@ -203,16 +193,21 @@ with st.expander("➕ INPUT TRANSAKSI BARU", expanded=False):
             st.toast("Data Tersimpan!", icon="✅")
             st.rerun()
 
-# RIWAYAT
+# --- BAGIAN PENTING: FORMAT RUPIAH DI TABEL ---
 st.markdown('<div class="section-title">Riwayat Mutasi</div>', unsafe_allow_html=True)
 if not df.empty:
     st.dataframe(
         df.sort_values("Tanggal", ascending=False)[['Tanggal','Kategori','Jumlah','Jenis']],
-        use_container_width=True, hide_index=True,
+        use_container_width=True, 
+        hide_index=True,
         column_config={
-            "Tanggal": st.column_config.DateColumn("Tgl", format="DD/MM"),
-            "Jumlah": st.column_config.NumberColumn("Rp", format="%d"),
-            "Jenis": st.column_config.TextColumn("Tipe", width="small")
+            "Tanggal": st.column_config.DateColumn("Tgl", format="DD/MM/YYYY"),
+            "Jenis": st.column_config.TextColumn("Tipe", width="small"),
+            "Jumlah": st.column_config.NumberColumn(
+                "Nominal (IDR)", 
+                format="Rp %.0f",  # <-- INI YANG MEMBUAT TAMPILAN JADI RUPIAH
+                help="Jumlah uang dalam Rupiah"
+            )
         }
     )
 else:
